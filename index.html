@@ -5,32 +5,69 @@
 <title>ブラックジャック</title>
 
 <style>
+
 body{
-    font-family: sans-serif;
-    background: #0b5c2e;
-    color: white;
+    background:#0b5c2e;
+    font-family:sans-serif;
     text-align:center;
+    color:white;
 }
 
 h1{
     margin-top:20px;
 }
 
-.table{
-    margin-top:20px;
+.area{
+    margin:20px;
 }
 
 .cards{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin:15px;
+}
+
+.card{
+
+    width:70px;
+    height:100px;
+
+    background:white;
+    border-radius:8px;
+    border:2px solid #222;
+
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+
+    padding:5px;
+
+    font-weight:bold;
+    font-size:18px;
+}
+
+.red{
+    color:red;
+}
+
+.black{
+    color:black;
+}
+
+.center{
     font-size:28px;
-    margin:10px;
 }
 
 button{
+
     padding:10px 20px;
-    margin:10px;
     font-size:16px;
+    margin:10px;
+
     border:none;
     border-radius:5px;
+
     cursor:pointer;
 }
 
@@ -42,6 +79,7 @@ button{
     font-size:22px;
     margin-top:20px;
 }
+
 </style>
 </head>
 
@@ -50,25 +88,26 @@ button{
 
 <h1>♠ ブラックジャック ♥</h1>
 
-<div class="table">
+<div class="area">
 
 <h2>ディーラー</h2>
+
 <div id="dealer-cards" class="cards"></div>
 <div id="dealer-score"></div>
 
 <h2>プレイヤー</h2>
+
 <div id="player-cards" class="cards"></div>
 <div id="player-score"></div>
 
-<div>
 <button class="hit" onclick="hit()">Hit</button>
 <button class="stand" onclick="stand()">Stand</button>
 <button class="new" onclick="startGame()">New Game</button>
-</div>
 
 <div id="message"></div>
 
 </div>
+
 
 
 <script>
@@ -96,14 +135,13 @@ function createDeck(){
 }
 
 
-
 function cardValue(card){
 
     if(card.value==="A") return 11
     if(["K","Q","J"].includes(card.value)) return 10
+
     return Number(card.value)
 }
-
 
 
 function handValue(hand){
@@ -113,12 +151,17 @@ function handValue(hand){
 
     for(let card of hand){
         total+=cardValue(card)
-        if(card.value==="A") aces++
+
+        if(card.value==="A"){
+            aces++
+        }
     }
 
     while(total>21 && aces>0){
+
         total-=10
         aces--
+
     }
 
     return total
@@ -126,19 +169,48 @@ function handValue(hand){
 
 
 
+function createCardElement(card){
+
+    const div=document.createElement("div")
+    div.classList.add("card")
+
+    const color=(card.suit==="♥"||card.suit==="♦")?"red":"black"
+
+    div.classList.add(color)
+
+    div.innerHTML=`
+    <div>${card.value}${card.suit}</div>
+    <div class="center">${card.suit}</div>
+    <div style="transform:rotate(180deg)">${card.value}${card.suit}</div>
+    `
+
+    return div
+}
+
+
+
 function display(){
 
-    document.getElementById("player-cards").innerHTML=
-        player.map(c=>c.value+c.suit).join(" ")
+    const p=document.getElementById("player-cards")
+    const d=document.getElementById("dealer-cards")
 
-    document.getElementById("dealer-cards").innerHTML=
-        dealer.map(c=>c.value+c.suit).join(" ")
+    p.innerHTML=""
+    d.innerHTML=""
+
+    player.forEach(c=>{
+        p.appendChild(createCardElement(c))
+    })
+
+    dealer.forEach(c=>{
+        d.appendChild(createCardElement(c))
+    })
 
     document.getElementById("player-score").innerText=
-        "Score: "+handValue(player)
+    "Score: "+handValue(player)
 
     document.getElementById("dealer-score").innerText=
-        "Score: "+handValue(dealer)
+    "Score: "+handValue(dealer)
+
 }
 
 
@@ -161,14 +233,18 @@ function startGame(){
 
 function hit(){
 
-    if(gameOver) return
+    if(gameOver)return
 
     player.push(deck.pop())
 
     if(handValue(player)>21){
+
         gameOver=true
+
         display()
+
         document.getElementById("message").innerText="バースト！ディーラーの勝ち"
+
         return
     }
 
@@ -179,28 +255,37 @@ function hit(){
 
 function stand(){
 
-    if(gameOver) return
+    if(gameOver)return
 
     while(handValue(dealer)<17){
+
         dealer.push(deck.pop())
+
     }
 
     let playerScore=handValue(player)
     let dealerScore=handValue(dealer)
 
     if(dealerScore>21 || playerScore>dealerScore){
+
         document.getElementById("message").innerText="あなたの勝ち！"
+
     }
     else if(playerScore<dealerScore){
+
         document.getElementById("message").innerText="ディーラーの勝ち"
+
     }
     else{
+
         document.getElementById("message").innerText="引き分け"
+
     }
 
     gameOver=true
 
     display()
+
 }
 
 
