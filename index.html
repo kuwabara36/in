@@ -2,31 +2,31 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Super HTML Bros</title>
+<title>Random Adventure Platformer</title>
 
 <style>
 
 body{
 margin:0;
-background:#5ec5ff;
+background:#6cc6ff;
 overflow:hidden;
 font-family:sans-serif;
 }
 
 #game{
-width:1400px;
-height:600px;
+width:1600px;
+height:700px;
 margin:auto;
 border:4px solid black;
-position:relative;
 overflow:hidden;
-background:linear-gradient(#5ec5ff,#c9f0ff);
+position:relative;
+background:linear-gradient(#6cc6ff,#e6f7ff);
 }
 
 #world{
 position:absolute;
-height:600px;
-width:4000px;
+height:700px;
+width:12000px;
 }
 
 .player{
@@ -34,13 +34,17 @@ width:40px;
 height:50px;
 background:red;
 position:absolute;
-border-radius:5px;
+border-radius:6px;
+}
+
+.big{
+transform:scale(1.5);
 }
 
 .platform{
+position:absolute;
 height:20px;
 background:#654321;
-position:absolute;
 }
 
 .coin{
@@ -55,8 +59,8 @@ position:absolute;
 width:40px;
 height:40px;
 background:purple;
-position:absolute;
 border-radius:50%;
+position:absolute;
 }
 
 .spike{
@@ -70,17 +74,26 @@ position:absolute;
 
 .goal{
 width:20px;
-height:120px;
+height:140px;
 background:green;
 position:absolute;
 }
+
+.item{
+width:30px;
+height:30px;
+position:absolute;
+border-radius:6px;
+}
+
+.star{background:yellow;}
+.mushroom{background:orange;}
 
 #ui{
 position:absolute;
 top:10px;
 left:10px;
-font-size:20px;
-color:black;
+font-size:22px;
 }
 
 </style>
@@ -95,95 +108,101 @@ Score: <span id="score">0</span>
 </div>
 
 <div id="world">
-
-<div class="player" id="player"></div>
-
-<div class="platform" style="left:0px;width:4000px;top:560px;"></div>
-<div class="platform" style="left:300px;width:150px;top:450px;"></div>
-<div class="platform" style="left:600px;width:150px;top:380px;"></div>
-<div class="platform" style="left:1000px;width:200px;top:430px;"></div>
-<div class="platform" style="left:1500px;width:200px;top:350px;"></div>
-<div class="platform" style="left:2000px;width:150px;top:420px;"></div>
-<div class="platform" style="left:2400px;width:200px;top:320px;"></div>
-<div class="platform" style="left:2900px;width:200px;top:420px;"></div>
-
-<div class="coin" style="left:320px;top:410px;"></div>
-<div class="coin" style="left:640px;top:340px;"></div>
-<div class="coin" style="left:1030px;top:390px;"></div>
-<div class="coin" style="left:1550px;top:310px;"></div>
-<div class="coin" style="left:2430px;top:280px;"></div>
-
-<div class="enemy" style="left:800px;top:520px;"></div>
-<div class="enemy" style="left:1800px;top:520px;"></div>
-<div class="enemy" style="left:2600px;top:520px;"></div>
-
-<div class="spike" style="left:1200px;top:520px;"></div>
-<div class="spike" style="left:2200px;top:520px;"></div>
-
-<div class="goal" style="left:3800px;top:440px;"></div>
-
+<div id="player" class="player"></div>
 </div>
+
 </div>
 
 <script>
 
-const player=document.getElementById("player")
 const world=document.getElementById("world")
-const coins=document.querySelectorAll(".coin")
-const enemies=document.querySelectorAll(".enemy")
-const spikes=document.querySelectorAll(".spike")
-const goal=document.querySelector(".goal")
+const player=document.getElementById("player")
 
 let x=100
 let y=0
 let vx=0
 let vy=0
+
 let gravity=0.7
 let jumpPower=-14
-let onGround=false
+let jumps=0
+
+let speed=6
 let score=0
+let invincible=false
 
 const keys={}
 
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
 
-function jumpSound(){
-
-let ctx=new AudioContext()
-let osc=ctx.createOscillator()
-osc.frequency.value=500
-osc.connect(ctx.destination)
-osc.start()
-osc.stop(ctx.currentTime+0.1)
-
-}
-
 function collide(a,b){
 
 let ar=a.getBoundingClientRect()
 let br=b.getBoundingClientRect()
 
-return !(
-ar.right<br.left||
-ar.left>br.right||
-ar.bottom<br.top||
-ar.top>br.bottom
-)
+return !(ar.right<br.left||ar.left>br.right||ar.bottom<br.top||ar.top>br.bottom)
 
 }
 
+function create(type,left,top){
+
+let el=document.createElement("div")
+el.className=type
+el.style.left=left+"px"
+el.style.top=top+"px"
+world.appendChild(el)
+return el
+
+}
+
+function generateStage(){
+
+create("platform",0,660).style.width="12000px"
+
+for(let i=300;i<11500;i+=Math.random()*400+200){
+
+let h=400+Math.random()*200
+
+let p=create("platform",i,h)
+p.style.width=150+Math.random()*150
+
+if(Math.random()<0.6)
+create("coin",i+50,h-40)
+
+if(Math.random()<0.3)
+create("enemy",i+60,620)
+
+if(Math.random()<0.2)
+create("spike",i+80,620)
+
+if(Math.random()<0.15)
+create("item mushroom",i+40,h-40)
+
+if(Math.random()<0.1)
+create("item star",i+40,h-40)
+
+}
+
+create("goal",11800,520)
+
+}
+
+generateStage()
+
 function gameLoop(){
 
-if(keys["ArrowRight"])vx=6
-else if(keys["ArrowLeft"])vx=-6
+if(keys["ArrowRight"])vx=speed
+else if(keys["ArrowLeft"])vx=-speed
 else vx=0
 
-if(keys[" "]&&onGround){
+if(keys["Shift"])speed=11
+else speed=6
+
+if(keys[" "] && jumps<2){
 
 vy=jumpPower
-onGround=false
-jumpSound()
+jumps++
 
 }
 
@@ -195,33 +214,31 @@ y+=vy
 player.style.left=x+"px"
 player.style.top=y+"px"
 
-onGround=false
-
 document.querySelectorAll(".platform").forEach(p=>{
 
-if(collide(player,p)&&vy>=0){
+if(collide(player,p) && vy>=0){
 
 y=p.offsetTop-50
 vy=0
-onGround=true
+jumps=0
 
 }
 
 })
 
-coins.forEach(c=>{
+document.querySelectorAll(".coin").forEach(c=>{
 
 if(c.style.display!="none" && collide(player,c)){
 
 c.style.display="none"
 score+=10
-document.getElementById("score").innerText=score
+scoreDisplay()
 
 }
 
 })
 
-enemies.forEach(e=>{
+document.querySelectorAll(".enemy").forEach(e=>{
 
 if(collide(player,e)){
 
@@ -230,11 +247,11 @@ if(vy>0){
 e.remove()
 vy=-10
 score+=50
+scoreDisplay()
 
-}else{
+}else if(!invincible){
 
-alert("GAME OVER")
-location.reload()
+gameOver()
 
 }
 
@@ -242,27 +259,70 @@ location.reload()
 
 })
 
-spikes.forEach(s=>{
+document.querySelectorAll(".spike").forEach(s=>{
+
+if(collide(player,s) && !invincible){
+
+gameOver()
+
+}
+
+})
+
+document.querySelectorAll(".mushroom").forEach(m=>{
+
+if(collide(player,m)){
+
+player.classList.add("big")
+score+=100
+scoreDisplay()
+m.remove()
+
+}
+
+})
+
+document.querySelectorAll(".star").forEach(s=>{
 
 if(collide(player,s)){
 
-alert("GAME OVER")
-location.reload()
+invincible=true
+player.style.background="yellow"
+
+setTimeout(()=>{
+invincible=false
+player.style.background="red"
+},5000)
+
+s.remove()
 
 }
 
 })
 
+let goal=document.querySelector(".goal")
+
 if(collide(player,goal)){
 
-alert("CLEAR!! Score:"+score)
+alert("STAGE CLEAR! Score:"+score)
 location.reload()
 
 }
 
-world.style.left=-(x-500)+"px"
+world.style.left=-(x-700)+"px"
 
 requestAnimationFrame(gameLoop)
+
+}
+
+function scoreDisplay(){
+document.getElementById("score").innerText=score
+}
+
+function gameOver(){
+
+alert("GAME OVER Score:"+score)
+location.reload()
 
 }
 
