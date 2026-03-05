@@ -2,159 +2,173 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>爆弾迷路サバイバル</title>
+<title>落ちる数字パズル</title>
 <style>
 body{
     margin:0;
     background:#111;
     color:white;
-    font-family:sans-serif;
     text-align:center;
+    font-family:sans-serif;
 }
 h1{margin:10px;}
 #info{margin:5px;}
-#maze{
-    display:grid;
+#board{
     margin:10px auto;
-    width:400px;
-    height:400px;
+    display:grid;
+    grid-template-columns: repeat(6, 60px);
+    grid-template-rows: repeat(10, 60px);
+    gap:4px;
+    width:max-content;
 }
 .cell{
-    border:1px solid #222;
+    width:60px;
+    height:60px;
+    background:#222;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-weight:bold;
+    font-size:20px;
+    border-radius:8px;
+    transition:0.15s;
 }
-.wall{ background:#222; }
-.path{ background:#333; }
-.player{ background:#00ffcc; }
-.goal{ background:#ffcc00; }
-.bomb{ background:#ff4444; }
+.merge{
+    animation:pop 0.2s ease;
+}
+@keyframes pop{
+    0%{transform:scale(1);}
+    50%{transform:scale(1.3);}
+    100%{transform:scale(1);}
+}
 </style>
 </head>
 <body>
 
-<h1>💣 爆弾迷路サバイバル</h1>
-<div id="info">Level: 1 | Time: 30 | Score: 0</div>
-<div id="maze"></div>
+<h1>🧩 落ちる数字パズル</h1>
+<div id="info"></div>
+<div id="board"></div>
 
 <script>
-const size = 15;
-let maze = [];
-let player = {x:1,y:1};
-let goal = {x:size-2,y:size-2};
-let level = 1;
-let score = 0;
-let timeLeft = 30;
-let bombCount = 2;
-let timer;
+const COLS=6;
+const ROWS=10;
+let board=[];
+let current=null;
+let dropInterval;
+let score=0;
+let combo=0;
+let highScore=localStorage.getItem("highScore")||0;
 
-function generateMaze(){
-    maze = Array(size).fill().map(()=>Array(size).fill(1));
+function init(){
+    board=Array(ROWS).fill().map(()=>Array(COLS).fill(0));
+    score=0;
+    combo=0;
+    spawn();
+    update();
+    dropInterval=setInterval(drop,700);
+}
 
-    function carve(x,y){
-        maze[y][x] = 0;
-        const dirs = [[2,0],[-2,0],[0,2],[0,-2]].sort(()=>Math.random()-0.5);
-        for(let [dx,dy] of dirs){
-            let nx=x+dx, ny=y+dy;
-            if(nx>0 && ny>0 && nx<size-1 && ny<size-1 && maze[ny][nx]===1){
-                maze[y+dy/2][x+dx/2]=0;
-                carve(nx,ny);
+function spawn(){
+    const col=Math.floor(Math.random()*COLS);
+    current={row:0,col:col,value:Math.random()<0.8?2:4};
+    if(board[0][col]!==0){
+        alert("ゲームオーバー\nScore:"+score);
+        if(score>highScore){
+            localStorage.setItem("highScore",score);
+        }
+        location.reload();
+    }
+}
+
+function drop(){
+    if(!current)return;
+    if(current.row+1<ROWS && board[current.row+1][current.col]===0){
+        current.row++;
+    }else{
+        board[current.row][current.col]=current.value;
+        merge(current.row,current.col);
+        spawn();
+    }
+    update();
+}
+
+function merge(r,c){
+    let merged=true;
+    combo=0;
+    while(merged){
+        merged=false;
+        const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+        for(let d of dirs){
+            let nr=r+d[0];
+            let nc=c+d[1];
+            if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS){
+                if(board[nr][nc]===board[r][c]){
+                    board[r][c]*=2;
+                    board[nr][nc]=0;
+                    score+=board[r][c];
+                    combo++;
+                    merged=true;
+                }
             }
         }
     }
-    carve(1,1);
+    if(combo>1) score+=combo*50;
+    applyGravity();
 }
 
-function drawMaze(){
-    const mazeDiv=document.getElementById("maze");
-    mazeDiv.style.gridTemplateColumns=`repeat(${size},1fr)`;
-    mazeDiv.innerHTML="";
-    for(let y=0;y<size;y++){
-        for(let x=0;x<size;x++){
+function applyGravity(){
+    let moved=true;
+    while(moved){
+        moved=false;
+        for(let c=0;c<COLS;c++){
+            for(let r=ROWS-1;r>0;r--){
+                if(board[r][c]===0 && board[r-1][c]!==0){
+                    board[r][c]=board[r-1][c];
+                    board[r-1][c]=0;
+                    moved=true;
+                }
+            }
+        }
+    }
+}
+
+function update(){
+    const boardDiv=document.getElementById("board");
+    boardDiv.innerHTML="";
+    for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
             const cell=document.createElement("div");
-            cell.classList.add("cell");
-            if(maze[y][x]===1) cell.classList.add("wall");
-            else cell.classList.add("path");
-
-            if(x===player.x && y===player.y)
-                cell.classList.add("player");
-
-            if(x===goal.x && y===goal.y)
-                cell.classList.add("goal");
-
-            mazeDiv.appendChild(cell);
+            cell.className="cell";
+            let val=board[r][c];
+            if(current && r===current.row && c===current.col){
+                val=current.value;
+            }
+            if(val!==0){
+                cell.textContent=val;
+                cell.style.background=`hsl(${Math.log2(val)*35},70%,50%)`;
+            }
+            boardDiv.appendChild(cell);
         }
     }
+    document.getElementById("info").textContent=
+        `Score: ${score} | Combo: ${combo} | HighScore: ${highScore}`;
 }
 
-function move(dx,dy){
-    let nx=player.x+dx;
-    let ny=player.y+dy;
-    if(maze[ny][nx]===0){
-        player.x=nx;
-        player.y=ny;
-        checkGoal();
-        drawMaze();
+document.addEventListener("keydown",e=>{
+    if(!current)return;
+    if(e.key==="ArrowLeft" && current.col>0 && board[current.row][current.col-1]===0){
+        current.col--;
     }
-}
-
-function checkGoal(){
-    if(player.x===goal.x && player.y===goal.y){
-        level++;
-        score+=timeLeft*10;
-        bombCount++;
-        startLevel();
+    if(e.key==="ArrowRight" && current.col<COLS-1 && board[current.row][current.col+1]===0){
+        current.col++;
     }
-}
-
-function spawnBomb(){
-    let bx,by;
-    do{
-        bx=Math.floor(Math.random()*size);
-        by=Math.floor(Math.random()*size);
-    }while(maze[by][bx]!==0 || (bx===player.x && by===player.y));
-
-    const index=by*size+bx;
-    document.getElementById("maze").children[index].classList.add("bomb");
-
-    setTimeout(()=>{
-        if(player.x===bx && player.y===by){
-            alert("💥 爆発！ゲームオーバー\nScore: "+score);
-            location.reload();
-        }
-        document.getElementById("maze").children[index].classList.remove("bomb");
-    },1500);
-}
-
-function startLevel(){
-    timeLeft=30;
-    player={x:1,y:1};
-    goal={x:size-2,y:size-2};
-    generateMaze();
-    drawMaze();
-
-    clearInterval(timer);
-    timer=setInterval(()=>{
-        timeLeft--;
-        document.getElementById("info").textContent=
-            `Level: ${level} | Time: ${timeLeft} | Score: ${score}`;
-        if(timeLeft<=0){
-            alert("⏰ タイムアップ！\nScore: "+score);
-            location.reload();
-        }
-    },1000);
-
-    for(let i=0;i<bombCount;i++){
-        setTimeout(()=>spawnBomb(),2000+i*1500);
+    if(e.key==="ArrowDown"){
+        drop();
     }
-}
-
-document.addEventListener("keydown",(e)=>{
-    if(e.key==="ArrowUp") move(0,-1);
-    if(e.key==="ArrowDown") move(0,1);
-    if(e.key==="ArrowLeft") move(-1,0);
-    if(e.key==="ArrowRight") move(1,0);
+    update();
 });
 
-startLevel();
+init();
 </script>
 
 </body>
