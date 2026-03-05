@@ -2,14 +2,14 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Random Adventure Platformer</title>
+<title>HTML Platform Adventure</title>
 
 <style>
 
 body{
 margin:0;
-background:#6cc6ff;
 overflow:hidden;
+background:#6cc6ff;
 font-family:sans-serif;
 }
 
@@ -25,8 +25,8 @@ background:linear-gradient(#6cc6ff,#e6f7ff);
 
 #world{
 position:absolute;
-height:700px;
 width:12000px;
+height:700px;
 }
 
 .player{
@@ -37,28 +37,24 @@ position:absolute;
 border-radius:6px;
 }
 
-.big{
-transform:scale(1.5);
-}
-
 .platform{
 position:absolute;
 height:20px;
 background:#654321;
 }
 
-.coin{
-width:20px;
-height:20px;
-background:gold;
-border-radius:50%;
-position:absolute;
-}
-
 .enemy{
 width:40px;
 height:40px;
 background:purple;
+border-radius:50%;
+position:absolute;
+}
+
+.coin{
+width:20px;
+height:20px;
+background:gold;
 border-radius:50%;
 position:absolute;
 }
@@ -72,22 +68,19 @@ border-bottom:40px solid black;
 position:absolute;
 }
 
-.goal{
+.door{
+width:50px;
+height:80px;
+background:brown;
+position:absolute;
+}
+
+.checkpoint{
 width:20px;
-height:140px;
-background:green;
+height:80px;
+background:blue;
 position:absolute;
 }
-
-.item{
-width:30px;
-height:30px;
-position:absolute;
-border-radius:6px;
-}
-
-.star{background:yellow;}
-.mushroom{background:orange;}
 
 #ui{
 position:absolute;
@@ -123,13 +116,15 @@ let y=0
 let vx=0
 let vy=0
 
+let respawnX=100
+let respawnY=0
+
 let gravity=0.7
 let jumpPower=-14
 let jumps=0
 
 let speed=6
 let score=0
-let invincible=false
 
 const keys={}
 
@@ -145,46 +140,47 @@ return !(ar.right<br.left||ar.left>br.right||ar.bottom<br.top||ar.top>br.bottom)
 
 }
 
-function create(type,left,top){
+function create(type,left,top,width){
 
 let el=document.createElement("div")
 el.className=type
 el.style.left=left+"px"
 el.style.top=top+"px"
+
+if(width)el.style.width=width+"px"
+
 world.appendChild(el)
+
 return el
 
 }
 
 function generateStage(){
 
-create("platform",0,660).style.width="12000px"
+create("platform",0,660,12000)
 
-for(let i=300;i<11500;i+=Math.random()*400+200){
+for(let i=400;i<11500;i+=400){
 
 let h=400+Math.random()*200
 
-let p=create("platform",i,h)
-p.style.width=150+Math.random()*150
+create("platform",i,h,150)
 
-if(Math.random()<0.6)
-create("coin",i+50,h-40)
+if(Math.random()<0.4)
+create("coin",i+60,h-40)
 
 if(Math.random()<0.3)
 create("enemy",i+60,620)
 
 if(Math.random()<0.2)
-create("spike",i+80,620)
-
-if(Math.random()<0.15)
-create("item mushroom",i+40,h-40)
-
-if(Math.random()<0.1)
-create("item star",i+40,h-40)
+create("spike",i+60,620)
 
 }
 
-create("goal",11800,520)
+create("door",2500,580)
+create("door",7000,580)
+
+create("checkpoint",1500,580)
+create("checkpoint",5000,580)
 
 }
 
@@ -195,9 +191,6 @@ function gameLoop(){
 if(keys["ArrowRight"])vx=speed
 else if(keys["ArrowLeft"])vx=-speed
 else vx=0
-
-if(keys["Shift"])speed=11
-else speed=6
 
 if(keys[" "] && jumps<2){
 
@@ -232,13 +225,24 @@ if(c.style.display!="none" && collide(player,c)){
 
 c.style.display="none"
 score+=10
-scoreDisplay()
+updateScore()
 
 }
 
 })
 
 document.querySelectorAll(".enemy").forEach(e=>{
+
+let ex=parseFloat(e.style.left)
+
+if(Math.abs(ex-x)<300){
+
+if(ex<x) ex+=2
+else ex-=2
+
+e.style.left=ex+"px"
+
+}
 
 if(collide(player,e)){
 
@@ -247,11 +251,11 @@ if(vy>0){
 e.remove()
 vy=-10
 score+=50
-scoreDisplay()
+updateScore()
 
-}else if(!invincible){
+}else{
 
-gameOver()
+respawn()
 
 }
 
@@ -261,51 +265,41 @@ gameOver()
 
 document.querySelectorAll(".spike").forEach(s=>{
 
-if(collide(player,s) && !invincible){
-
-gameOver()
-
-}
-
-})
-
-document.querySelectorAll(".mushroom").forEach(m=>{
-
-if(collide(player,m)){
-
-player.classList.add("big")
-score+=100
-scoreDisplay()
-m.remove()
-
-}
-
-})
-
-document.querySelectorAll(".star").forEach(s=>{
-
 if(collide(player,s)){
 
-invincible=true
-player.style.background="yellow"
-
-setTimeout(()=>{
-invincible=false
-player.style.background="red"
-},5000)
-
-s.remove()
+respawn()
 
 }
 
 })
 
-let goal=document.querySelector(".goal")
+document.querySelectorAll(".door").forEach(d=>{
 
-if(collide(player,goal)){
+if(collide(player,d)){
 
-alert("STAGE CLEAR! Score:"+score)
-location.reload()
+x+=2000
+y=0
+
+}
+
+})
+
+document.querySelectorAll(".checkpoint").forEach(c=>{
+
+if(collide(player,c)){
+
+respawnX=c.offsetLeft
+respawnY=0
+
+c.style.background="lime"
+
+}
+
+})
+
+if(y>720){
+
+respawn()
 
 }
 
@@ -315,15 +309,17 @@ requestAnimationFrame(gameLoop)
 
 }
 
-function scoreDisplay(){
-document.getElementById("score").innerText=score
+function respawn(){
+
+x=respawnX
+y=respawnY
+vx=0
+vy=0
+
 }
 
-function gameOver(){
-
-alert("GAME OVER Score:"+score)
-location.reload()
-
+function updateScore(){
+document.getElementById("score").innerText=score
 }
 
 gameLoop()
