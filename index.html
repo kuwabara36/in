@@ -1,315 +1,208 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Platform Adventure</title>
+import React, { useEffect, useRef, useState } from "react";
 
-<style>
+const TILE = 40;
+const GRAVITY = 0.7;
+const JUMP = -12;
+const SPEED = 4;
 
-body{
-margin:0;
-overflow:hidden;
-background:#6cc6ff;
-font-family:sans-serif;
+function rand(min, max){return Math.floor(Math.random()*(max-min+1))+min}
+
+function generateStage(len=120){
+  const tiles=[];
+  for(let i=0;i<len;i++){
+    const groundHeight = rand(8,10);
+    for(let y=0;y<groundHeight;y++){
+      tiles.push({x:i,y:12-y,type:"ground"});
+    }
+
+    if(Math.random()<0.12){
+      tiles.push({x:i,y:rand(5,7),type:"platform"});
+    }
+
+    if(Math.random()<0.07){
+      tiles.push({x:i,y:11,type:"pit"});
+    }
+
+    if(Math.random()<0.06){
+      tiles.push({x:i,y:7,type:"spring"});
+    }
+
+    if(Math.random()<0.06){
+      tiles.push({x:i,y:6,type:"enemy"});
+    }
+
+    if(Math.random()<0.04){
+      tiles.push({x:i,y:7,type:"switch"});
+      tiles.push({x:i+1,y:7,type:"switchBlock"});
+    }
+
+    if(i===Math.floor(len/2)){
+      tiles.push({x:i,y:7,type:"checkpoint"});
+    }
+
+    if(i===len-3){
+      tiles.push({x:i,y:7,type:"door"});
+    }
+  }
+  return tiles;
 }
 
-#game{
-width:1600px;
-height:700px;
-margin:auto;
-border:4px solid black;
-overflow:hidden;
-position:relative;
-background:linear-gradient(#6cc6ff,#e6f7ff);
+export default function PlatformGame(){
+  const canvasRef=useRef(null);
+  const [stage,setStage]=useState(()=>generateStage());
+  const [checkpoint,setCheckpoint]=useState({x:2,y:5});
+
+  const player=useRef({x:2*TILE,y:5*TILE,vx:0,vy:0,onGround:false});
+  const keys=useRef({});
+  const enemies=useRef([]);
+
+  useEffect(()=>{
+    enemies.current = stage.filter(t=>t.type==="enemy").map(t=>({
+      x:t.x*TILE,
+      y:t.y*TILE,
+      dir:Math.random()<0.5?-1:1
+    }))
+  },[stage])
+
+  useEffect(()=>{
+    const down=e=>keys.current[e.key]=true
+    const up=e=>keys.current[e.key]=false
+    window.addEventListener("keydown",down)
+    window.addEventListener("keyup",up)
+    return()=>{
+      window.removeEventListener("keydown",down)
+      window.removeEventListener("keyup",up)
+    }
+  },[])
+
+  function resetToCheckpoint(){
+    player.current.x=checkpoint.x*TILE
+    player.current.y=checkpoint.y*TILE
+    player.current.vx=0
+    player.current.vy=0
+
+    enemies.current = stage.filter(t=>t.type==="enemy").map(t=>({
+      x:t.x*TILE,
+      y:t.y*TILE,
+      dir:Math.random()<0.5?-1:1
+    }))
+  }
+
+  useEffect(()=>{
+    const canvas=canvasRef.current
+    const ctx=canvas.getContext("2d")
+
+    function loop(){
+      const p=player.current
+
+      if(keys.current["ArrowRight"]) p.vx=SPEED
+      else if(keys.current["ArrowLeft"]) p.vx=-SPEED
+      else p.vx=0
+
+      if(keys.current[" "] && p.onGround){
+        p.vy=JUMP
+        p.onGround=false
+      }
+
+      p.vy+=GRAVITY
+      p.x+=p.vx
+      p.y+=p.vy
+
+      p.onGround=false
+
+      for(const t of stage){
+        const tx=t.x*TILE
+        const ty=t.y*TILE
+
+        if(t.type==="pit"){
+          if(p.x>tx && p.x<tx+TILE && p.y>ty-20) resetToCheckpoint()
+        }
+
+        if(["ground","platform","switchBlock"].includes(t.type)){
+          if(p.x+30>tx && p.x<tx+TILE && p.y+30>ty && p.y+30<ty+20 && p.vy>=0){
+            p.y=ty-30
+            p.vy=0
+            p.onGround=true
+          }
+        }
+
+        if(t.type==="spring"){
+          if(p.x+30>tx && p.x<tx+TILE && p.y+30>ty && p.y+30<ty+20){
+            p.vy=-18
+          }
+        }
+
+        if(t.type==="switch"){
+          if(p.x+30>tx && p.x<tx+TILE && p.y+30>ty && p.y+30<ty+20){
+            setStage(s=>s.filter(a=>a.type!=="switchBlock"))
+          }
+        }
+
+        if(t.type==="checkpoint"){
+          if(p.x+30>tx && p.x<tx+TILE && p.y+30>ty && p.y+30<ty+20){
+            setCheckpoint({x:t.x,y:t.y-1})
+          }
+        }
+
+        if(t.type==="door"){
+          if(p.x+30>tx && p.x<tx+TILE && p.y+30>ty && p.y+30<ty+20){
+            setStage(generateStage(rand(120,180)))
+            resetToCheckpoint()
+          }
+        }
+      }
+
+      for(const e of enemies.current){
+        e.x+=e.dir*2
+        if(Math.random()<0.01) e.dir*=-1
+
+        if(Math.abs(p.x-e.x)<25 && Math.abs(p.y-e.y)<25){
+          resetToCheckpoint()
+        }
+      }
+
+      if(p.y>canvas.height) resetToCheckpoint()
+
+      const camX=p.x-400
+
+      ctx.clearRect(0,0,canvas.width,canvas.height)
+
+      for(const t of stage){
+        const x=t.x*TILE-camX
+        const y=t.y*TILE
+
+        if(t.type==="ground") ctx.fillStyle="#654321"
+        if(t.type==="platform") ctx.fillStyle="#888"
+        if(t.type==="spring") ctx.fillStyle="#ff00aa"
+        if(t.type==="checkpoint") ctx.fillStyle="#00ffff"
+        if(t.type==="switch") ctx.fillStyle="#ffff00"
+        if(t.type==="switchBlock") ctx.fillStyle="#00ff00"
+        if(t.type==="door") ctx.fillStyle="#ff8800"
+
+        if(t.type!=="enemy" && t.type!=="pit"){
+          ctx.fillRect(x,y,TILE,TILE)
+        }
+      }
+
+      ctx.fillStyle="red"
+      for(const e of enemies.current){
+        ctx.fillRect(e.x-camX,e.y,30,30)
+      }
+
+      ctx.fillStyle="blue"
+      ctx.fillRect(p.x-camX,p.y,30,30)
+
+      requestAnimationFrame(loop)
+    }
+
+    loop()
+  },[stage])
+
+  return (
+    <div className="w-full h-full flex flex-col items-center gap-2">
+      <div className="text-lg font-bold">Procedural Platform Adventure</div>
+      <div className="text-sm">← → 移動 / Space ジャンプ</div>
+      <canvas ref={canvasRef} width={900} height={520} className="border rounded-2xl shadow" />
+    </div>
+  )
 }
-
-#world{
-position:absolute;
-width:9000px;
-height:700px;
-}
-
-.player{
-width:40px;
-height:50px;
-background:red;
-position:absolute;
-border-radius:6px;
-}
-
-.platform{
-position:absolute;
-height:20px;
-background:#654321;
-}
-
-.enemy{
-width:35px;
-height:35px;
-background:purple;
-border-radius:50%;
-position:absolute;
-}
-
-.coin{
-width:18px;
-height:18px;
-background:gold;
-border-radius:50%;
-position:absolute;
-}
-
-.spring{
-width:40px;
-height:20px;
-background:cyan;
-position:absolute;
-}
-
-.door{
-width:70px;
-height:100px;
-background:brown;
-color:white;
-font-size:14px;
-text-align:center;
-line-height:100px;
-position:absolute;
-}
-
-.checkpoint{
-width:20px;
-height:80px;
-background:blue;
-position:absolute;
-}
-
-.ceiling{
-position:absolute;
-height:20px;
-background:#555;
-}
-
-</style>
-</head>
-
-<body>
-
-<div id="game">
-
-<div id="world">
-<div id="player" class="player"></div>
-</div>
-
-</div>
-
-<script>
-
-const world=document.getElementById("world")
-const player=document.getElementById("player")
-
-let x=100
-let y=500
-
-let vx=0
-let vy=0
-
-let speed=6
-let gravity=0.7
-let jumpPower=-14
-
-let onGround=false
-
-let respawnX=100
-let respawnY=500
-
-const keys={}
-
-document.addEventListener("keydown",e=>keys[e.key]=true)
-document.addEventListener("keyup",e=>keys[e.key]=false)
-
-function collide(a,b){
-
-let ar=a.getBoundingClientRect()
-let br=b.getBoundingClientRect()
-
-return !(ar.right<br.left||ar.left>br.right||ar.bottom<br.top||ar.top>br.bottom)
-
-}
-
-function create(type,x,y,w){
-
-let el=document.createElement("div")
-el.className=type
-el.style.left=x+"px"
-el.style.top=y+"px"
-
-if(w)el.style.width=w+"px"
-
-world.appendChild(el)
-
-return el
-
-}
-
-function stage(){
-
-create("platform",0,660,9000)
-
-for(let i=400;i<8500;i+=600){
-
-let h=400+Math.random()*150
-
-create("platform",i,h,200)
-
-create("enemy",i+80,h-35)
-
-create("coin",i+100,h-40)
-
-}
-
-create("spring",1200,640)
-create("spring",4200,640)
-
-let d=create("door",2500,560)
-d.innerText="DOOR"
-
-let d2=create("door",7000,560)
-d2.innerText="DOOR"
-
-create("checkpoint",1500,580)
-create("checkpoint",5000,580)
-
-create("ceiling",3000,350,300)
-
-}
-
-stage()
-
-function gameLoop(){
-
-if(keys["ArrowRight"])vx=speed
-else if(keys["ArrowLeft"])vx=-speed
-else vx=0
-
-if(keys[" "] && onGround){
-
-vy=jumpPower
-onGround=false
-
-}
-
-vy+=gravity
-
-x+=vx
-y+=vy
-
-player.style.left=x+"px"
-player.style.top=y+"px"
-
-onGround=false
-
-document.querySelectorAll(".platform").forEach(p=>{
-
-if(collide(player,p) && vy>=0){
-
-y=p.offsetTop-50
-vy=0
-onGround=true
-
-}
-
-})
-
-document.querySelectorAll(".ceiling").forEach(c=>{
-
-if(collide(player,c) && vy<0){
-
-vy=0
-y=c.offsetTop+20
-
-}
-
-})
-
-document.querySelectorAll(".enemy").forEach(e=>{
-
-let ex=parseFloat(e.style.left)
-
-if(Math.abs(ex-x)<300){
-
-if(ex<x)ex+=1.5
-else ex-=1.5
-
-e.style.left=ex+"px"
-
-}
-
-if(collide(player,e)){
-
-respawn()
-
-}
-
-})
-
-document.querySelectorAll(".spring").forEach(s=>{
-
-if(collide(player,s) && vy>=0){
-
-vy=-20
-
-}
-
-})
-
-document.querySelectorAll(".door").forEach(d=>{
-
-if(collide(player,d)){
-
-x+=1500
-y=500
-
-}
-
-})
-
-document.querySelectorAll(".checkpoint").forEach(c=>{
-
-if(collide(player,c)){
-
-respawnX=c.offsetLeft
-respawnY=500
-c.style.background="lime"
-
-}
-
-})
-
-if(y>720){
-
-respawn()
-
-}
-
-world.style.left=-(x-700)+"px"
-
-requestAnimationFrame(gameLoop)
-
-}
-
-function respawn(){
-
-x=respawnX
-y=respawnY
-vx=0
-vy=0
-
-}
-
-gameLoop()
-
-</script>
-
-</body>
-</html>
