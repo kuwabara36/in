@@ -2,265 +2,271 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>アクションアドベンチャー</title>
+<title>Super HTML Bros</title>
+
 <style>
+
 body{
 margin:0;
+background:#5ec5ff;
 overflow:hidden;
-background:#87ceeb;
 font-family:sans-serif;
 }
-canvas{
-display:block;
+
+#game{
+width:1400px;
+height:600px;
+margin:auto;
+border:4px solid black;
+position:relative;
+overflow:hidden;
+background:linear-gradient(#5ec5ff,#c9f0ff);
 }
+
+#world{
+position:absolute;
+height:600px;
+width:4000px;
+}
+
+.player{
+width:40px;
+height:50px;
+background:red;
+position:absolute;
+border-radius:5px;
+}
+
+.platform{
+height:20px;
+background:#654321;
+position:absolute;
+}
+
+.coin{
+width:20px;
+height:20px;
+background:gold;
+border-radius:50%;
+position:absolute;
+}
+
+.enemy{
+width:40px;
+height:40px;
+background:purple;
+position:absolute;
+border-radius:50%;
+}
+
+.spike{
+width:0;
+height:0;
+border-left:20px solid transparent;
+border-right:20px solid transparent;
+border-bottom:40px solid black;
+position:absolute;
+}
+
+.goal{
+width:20px;
+height:120px;
+background:green;
+position:absolute;
+}
+
+#ui{
+position:absolute;
+top:10px;
+left:10px;
+font-size:20px;
+color:black;
+}
+
 </style>
 </head>
+
 <body>
 
-<canvas id="game"></canvas>
+<div id="game">
+
+<div id="ui">
+Score: <span id="score">0</span>
+</div>
+
+<div id="world">
+
+<div class="player" id="player"></div>
+
+<div class="platform" style="left:0px;width:4000px;top:560px;"></div>
+<div class="platform" style="left:300px;width:150px;top:450px;"></div>
+<div class="platform" style="left:600px;width:150px;top:380px;"></div>
+<div class="platform" style="left:1000px;width:200px;top:430px;"></div>
+<div class="platform" style="left:1500px;width:200px;top:350px;"></div>
+<div class="platform" style="left:2000px;width:150px;top:420px;"></div>
+<div class="platform" style="left:2400px;width:200px;top:320px;"></div>
+<div class="platform" style="left:2900px;width:200px;top:420px;"></div>
+
+<div class="coin" style="left:320px;top:410px;"></div>
+<div class="coin" style="left:640px;top:340px;"></div>
+<div class="coin" style="left:1030px;top:390px;"></div>
+<div class="coin" style="left:1550px;top:310px;"></div>
+<div class="coin" style="left:2430px;top:280px;"></div>
+
+<div class="enemy" style="left:800px;top:520px;"></div>
+<div class="enemy" style="left:1800px;top:520px;"></div>
+<div class="enemy" style="left:2600px;top:520px;"></div>
+
+<div class="spike" style="left:1200px;top:520px;"></div>
+<div class="spike" style="left:2200px;top:520px;"></div>
+
+<div class="goal" style="left:3800px;top:440px;"></div>
+
+</div>
+</div>
 
 <script>
 
-const canvas=document.getElementById("game")
-const ctx=canvas.getContext("2d")
+const player=document.getElementById("player")
+const world=document.getElementById("world")
+const coins=document.querySelectorAll(".coin")
+const enemies=document.querySelectorAll(".enemy")
+const spikes=document.querySelectorAll(".spike")
+const goal=document.querySelector(".goal")
 
-function resize(){
-canvas.width=window.innerWidth
-canvas.height=window.innerHeight
-}
-resize()
-window.addEventListener("resize",resize)
-
-let gravity=0.8
-let cameraX=0
-
-let lives=3
+let x=100
+let y=0
+let vx=0
+let vy=0
+let gravity=0.7
+let jumpPower=-14
+let onGround=false
 let score=0
 
 const keys={}
 
-let player={
-x:100,
-y:300,
-w:40,
-h:50,
-dx:0,
-dy:0,
-speed:6,
-jump:-16,
-onGround:false
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)
+
+function jumpSound(){
+
+let ctx=new AudioContext()
+let osc=ctx.createOscillator()
+osc.frequency.value=500
+osc.connect(ctx.destination)
+osc.start()
+osc.stop(ctx.currentTime+0.1)
+
 }
 
-const worldWidth=5000
+function collide(a,b){
 
-const platforms=[
-{x:0,y:canvas.height-50,w:5000,h:50},
+let ar=a.getBoundingClientRect()
+let br=b.getBoundingClientRect()
 
-{x:300,y:450,w:150,h:20},
-{x:550,y:380,w:150,h:20,type:"move",dir:1},
-{x:800,y:330,w:150,h:20},
+return !(
+ar.right<br.left||
+ar.left>br.right||
+ar.bottom<br.top||
+ar.top>br.bottom
+)
 
-{x:1100,y:400,w:120,h:20,type:"fall"},
-{x:1300,y:320,w:150,h:20},
-{x:1600,y:260,w:150,h:20},
-
-{x:2000,y:380,w:150,h:20,type:"move",dir:1},
-{x:2300,y:300,w:150,h:20},
-{x:2600,y:230,w:150,h:20},
-
-{x:3000,y:350,w:150,h:20,type:"fall"},
-{x:3300,y:280,w:150,h:20},
-{x:3600,y:220,w:150,h:20},
-
-{x:4000,y:320,w:200,h:20}
-]
-
-const enemies=[
-{x:700,y:290,w:40,h:40,dir:1},
-{x:1800,y:220,w:40,h:40,dir:1},
-{x:3200,y:240,w:40,h:40,dir:1}
-]
-
-const lava=[
-{x:1500,y:canvas.height-40,w:200,h:40},
-{x:3500,y:canvas.height-40,w:200,h:40}
-]
-
-let coins=[]
-for(let i=200;i<4500;i+=200){
-coins.push({x:i,y:Math.random()*300+100,collected:false})
 }
 
-const goal={x:4700,y:canvas.height-100,w:50,h:80}
+function gameLoop(){
 
-function die(){
-lives--
-player.x=100
-player.y=300
-player.dx=0
-player.dy=0
+if(keys["ArrowRight"])vx=6
+else if(keys["ArrowLeft"])vx=-6
+else vx=0
 
-if(lives<=0){
-alert("ゲームオーバー\nScore:"+score)
-location.reload()
-}
-}
+if(keys[" "]&&onGround){
 
-function update(){
+vy=jumpPower
+onGround=false
+jumpSound()
 
-player.dx=0
-
-if(keys["ArrowRight"]) player.dx=player.speed
-if(keys["ArrowLeft"]) player.dx=-player.speed
-
-player.x+=player.dx
-
-player.dy+=gravity
-player.y+=player.dy
-
-player.onGround=false
-
-for(let p of platforms){
-
-if(p.type==="move"){
-p.x+=2*p.dir
-if(p.x>p.start+100||p.x<p.start-100) p.dir*=-1
 }
 
-if(
-player.x<p.x+p.w &&
-player.x+player.w>p.x &&
-player.y+player.h>p.y &&
-player.y+player.h<p.y+20 &&
-player.dy>=0
-){
-player.y=p.y-player.h
-player.dy=0
-player.onGround=true
+vy+=gravity
 
-if(p.type==="fall"){
-setTimeout(()=>{p.y+=600},500)
-}
-}
-}
+x+=vx
+y+=vy
 
-if(player.onGround && keys["Space"]){
-player.dy=player.jump
-}
+player.style.left=x+"px"
+player.style.top=y+"px"
 
-for(let e of enemies){
+onGround=false
 
-e.x+=2*e.dir
-if(e.x<e.start-100||e.x>e.start+100) e.dir*=-1
+document.querySelectorAll(".platform").forEach(p=>{
 
-if(
-player.x<e.x+e.w &&
-player.x+player.w>e.x &&
-player.y<e.y+e.h &&
-player.y+player.h>e.y
-){
-if(player.dy>0){
-e.dead=true
-player.dy=-10
-score+=50
-}else{
-die()
-}
-}
+if(collide(player,p)&&vy>=0){
+
+y=p.offsetTop-50
+vy=0
+onGround=true
+
 }
 
-for(let l of lava){
-if(
-player.x<l.x+l.w &&
-player.x+player.w>l.x &&
-player.y+player.h>l.y
-){
-die()
-}
-}
+})
 
-for(let c of coins){
-if(!c.collected &&
-player.x<c.x+20 &&
-player.x+player.w>c.x &&
-player.y<c.y+20 &&
-player.y+player.h>c.y){
-c.collected=true
+coins.forEach(c=>{
+
+if(c.style.display!="none" && collide(player,c)){
+
+c.style.display="none"
 score+=10
-}
+document.getElementById("score").innerText=score
+
 }
 
-if(
-player.x<goal.x+goal.w &&
-player.x+player.w>goal.x &&
-player.y<goal.y+goal.h &&
-player.y+player.h>goal.y
-){
-alert("クリア！ Score:"+score)
+})
+
+enemies.forEach(e=>{
+
+if(collide(player,e)){
+
+if(vy>0){
+
+e.remove()
+vy=-10
+score+=50
+
+}else{
+
+alert("GAME OVER")
 location.reload()
-}
-
-if(player.y>canvas.height) die()
-
-cameraX=player.x-canvas.width/3
-}
-
-function draw(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height)
-
-ctx.save()
-ctx.translate(-cameraX,0)
-
-ctx.fillStyle="#654321"
-for(let p of platforms){
-ctx.fillRect(p.x,p.y,p.w,p.h)
-}
-
-ctx.fillStyle="red"
-for(let l of lava){
-ctx.fillRect(l.x,l.y,l.w,l.h)
-}
-
-ctx.fillStyle="gold"
-for(let c of coins){
-if(!c.collected)
-ctx.fillRect(c.x,c.y,20,20)
-}
-
-ctx.fillStyle="purple"
-for(let e of enemies){
-if(!e.dead)
-ctx.fillRect(e.x,e.y,e.w,e.h)
-}
-
-ctx.fillStyle="blue"
-ctx.fillRect(player.x,player.y,player.w,player.h)
-
-ctx.fillStyle="green"
-ctx.fillRect(goal.x,goal.y,goal.w,goal.h)
-
-ctx.restore()
-
-ctx.fillStyle="black"
-ctx.font="20px sans-serif"
-ctx.fillText("Lives:"+lives+"  Score:"+score,20,30)
 
 }
 
-function loop(){
-update()
-draw()
-requestAnimationFrame(loop)
 }
 
-document.addEventListener("keydown",e=>keys[e.code]=true)
-document.addEventListener("keyup",e=>keys[e.code]=false)
+})
 
-for(let p of platforms) p.start=p.x
-for(let e of enemies) e.start=e.x
+spikes.forEach(s=>{
 
-loop()
+if(collide(player,s)){
+
+alert("GAME OVER")
+location.reload()
+
+}
+
+})
+
+if(collide(player,goal)){
+
+alert("CLEAR!! Score:"+score)
+location.reload()
+
+}
+
+world.style.left=-(x-500)+"px"
+
+requestAnimationFrame(gameLoop)
+
+}
+
+gameLoop()
 
 </script>
 
