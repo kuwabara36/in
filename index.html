@@ -2,134 +2,148 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>スマホ風ガチャゲーム</title>
+<title>オセロゲーム</title>
 <style>
 body {
     margin: 0;
-    font-family: "Segoe UI", sans-serif;
-    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    background: #0f3d2e;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    height: 100vh;
+    font-family: sans-serif;
     color: white;
 }
 
-.container {
-    text-align: center;
-    background: rgba(0,0,0,0.6);
-    padding: 30px;
-    border-radius: 20px;
-    width: 350px;
-    box-shadow: 0 0 20px rgba(255,255,255,0.3);
-}
-
 h1 {
-    margin-bottom: 20px;
+    margin: 20px;
 }
 
-.result {
-    margin: 20px 0;
-    padding: 20px;
-    border-radius: 15px;
-    background: rgba(255,255,255,0.1);
-    min-height: 80px;
-    font-size: 18px;
-    transition: 0.3s;
+#board {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    gap: 2px;
+    background: #083d2b;
+    padding: 5px;
 }
 
-button {
-    padding: 12px 25px;
-    border: none;
-    border-radius: 30px;
-    background: gold;
-    font-weight: bold;
+.cell {
+    width: 60px;
+    height: 60px;
+    background: #2e8b57;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     cursor: pointer;
-    font-size: 16px;
-    transition: 0.2s;
 }
 
-button:hover {
-    transform: scale(1.05);
-    background: orange;
+.disc {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
 }
 
-.rarity-SSR { color: gold; font-weight: bold; }
-.rarity-SR { color: violet; font-weight: bold; }
-.rarity-R { color: lightblue; }
-.rarity-N { color: lightgray; }
+.black {
+    background: black;
+}
 
-.history {
-    margin-top: 20px;
-    font-size: 14px;
-    max-height: 100px;
-    overflow-y: auto;
-    text-align: left;
+.white {
+    background: white;
+}
+
+#status {
+    margin: 15px;
+    font-size: 18px;
 }
 </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>✨ ガチャゲーム ✨</h1>
-    <div class="result" id="result">
-        ボタンを押してガチャを回そう！
-    </div>
-    <button onclick="drawGacha()">ガチャを引く</button>
-
-    <div class="history" id="history"></div>
-</div>
+<h1>オセロゲーム</h1>
+<div id="status">黒の番です</div>
+<div id="board"></div>
 
 <script>
-const characters = [
-    { name: "伝説のドラゴン", rarity: "SSR", rate: 3 },
-    { name: "闇の魔法使い", rarity: "SR", rate: 12 },
-    { name: "銀の騎士", rarity: "SR", rate: 12 },
-    { name: "森のエルフ", rarity: "R", rate: 25 },
-    { name: "炎の戦士", rarity: "R", rate: 25 },
-    { name: "村人A", rarity: "N", rate: 23 }
+const boardSize = 8;
+let board = [];
+let currentPlayer = "black";
+
+const directions = [
+    [-1,-1], [-1,0], [-1,1],
+    [0,-1],         [0,1],
+    [1,-1],  [1,0], [1,1]
 ];
 
-let historyLog = [];
+function initBoard() {
+    board = Array(boardSize).fill().map(() => Array(boardSize).fill(null));
 
-function drawGacha() {
-    const resultDiv = document.getElementById("result");
-    resultDiv.innerHTML = "ガチャ回転中...";
-    
-    setTimeout(() => {
-        const rand = Math.random() * 100;
-        let sum = 0;
-        let selected;
+    board[3][3] = "white";
+    board[3][4] = "black";
+    board[4][3] = "black";
+    board[4][4] = "white";
 
-        for (let char of characters) {
-            sum += char.rate;
-            if (rand <= sum) {
-                selected = char;
+    drawBoard();
+}
+
+function drawBoard() {
+    const boardDiv = document.getElementById("board");
+    boardDiv.innerHTML = "";
+
+    for (let r = 0; r < boardSize; r++) {
+        for (let c = 0; c < boardSize; c++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.onclick = () => placeDisc(r, c);
+
+            if (board[r][c]) {
+                const disc = document.createElement("div");
+                disc.className = "disc " + board[r][c];
+                cell.appendChild(disc);
+            }
+
+            boardDiv.appendChild(cell);
+        }
+    }
+}
+
+function placeDisc(r, c) {
+    if (board[r][c]) return;
+
+    let flipped = [];
+
+    for (let [dr, dc] of directions) {
+        let temp = [];
+        let nr = r + dr;
+        let nc = c + dc;
+
+        while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+            if (!board[nr][nc]) break;
+            if (board[nr][nc] !== currentPlayer) {
+                temp.push([nr,nc]);
+            } else {
+                flipped = flipped.concat(temp);
                 break;
             }
+            nr += dr;
+            nc += dc;
         }
+    }
 
-        resultDiv.innerHTML = `
-            <div class="rarity-${selected.rarity}">
-                ${selected.rarity} : ${selected.name}
-            </div>
-        `;
+    if (flipped.length === 0) return;
 
-        historyLog.unshift(`${selected.rarity} - ${selected.name}`);
-        if (historyLog.length > 10) historyLog.pop();
-        document.getElementById("history").innerHTML =
-            "<strong>履歴:</strong><br>" + historyLog.join("<br>");
+    board[r][c] = currentPlayer;
+    for (let [fr, fc] of flipped) {
+        board[fr][fc] = currentPlayer;
+    }
 
-        if (selected.rarity === "SSR") {
-            resultDiv.style.background = "rgba(255,215,0,0.3)";
-        } else if (selected.rarity === "SR") {
-            resultDiv.style.background = "rgba(138,43,226,0.3)";
-        } else {
-            resultDiv.style.background = "rgba(255,255,255,0.1)";
-        }
+    currentPlayer = currentPlayer === "black" ? "white" : "black";
+    document.getElementById("status").textContent =
+        currentPlayer === "black" ? "黒の番です" : "白の番です";
 
-    }, 800);
+    drawBoard();
 }
+
+initBoard();
 </script>
 
 </body>
