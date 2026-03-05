@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>スマホ風ガチャゲーム</title>
+<style>
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+}
+
+.container {
+    text-align: center;
+    background: rgba(0,0,0,0.6);
+    padding: 30px;
+    border-radius: 20px;
+    width: 350px;
+    box-shadow: 0 0 20px rgba(255,255,255,0.3);
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+.result {
+    margin: 20px 0;
+    padding: 20px;
+    border-radius: 15px;
+    background: rgba(255,255,255,0.1);
+    min-height: 80px;
+    font-size: 18px;
+    transition: 0.3s;
+}
+
+button {
+    padding: 12px 25px;
+    border: none;
+    border-radius: 30px;
+    background: gold;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 16px;
+    transition: 0.2s;
+}
+
+button:hover {
+    transform: scale(1.05);
+    background: orange;
+}
+
+.rarity-SSR { color: gold; font-weight: bold; }
+.rarity-SR { color: violet; font-weight: bold; }
+.rarity-R { color: lightblue; }
+.rarity-N { color: lightgray; }
+
+.history {
+    margin-top: 20px;
+    font-size: 14px;
+    max-height: 100px;
+    overflow-y: auto;
+    text-align: left;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>✨ ガチャゲーム ✨</h1>
+    <div class="result" id="result">
+        ボタンを押してガチャを回そう！
+    </div>
+    <button onclick="drawGacha()">ガチャを引く</button>
+
+    <div class="history" id="history"></div>
+</div>
+
+<script>
+const characters = [
+    { name: "伝説のドラゴン", rarity: "SSR", rate: 3 },
+    { name: "闇の魔法使い", rarity: "SR", rate: 12 },
+    { name: "銀の騎士", rarity: "SR", rate: 12 },
+    { name: "森のエルフ", rarity: "R", rate: 25 },
+    { name: "炎の戦士", rarity: "R", rate: 25 },
+    { name: "村人A", rarity: "N", rate: 23 }
+];
+
+let historyLog = [];
+
+function drawGacha() {
+    const resultDiv = document.getElementById("result");
+    resultDiv.innerHTML = "ガチャ回転中...";
+    
+    setTimeout(() => {
+        const rand = Math.random() * 100;
+        let sum = 0;
+        let selected;
+
+        for (let char of characters) {
+            sum += char.rate;
+            if (rand <= sum) {
+                selected = char;
+                break;
+            }
+        }
+
+        resultDiv.innerHTML = `
+            <div class="rarity-${selected.rarity}">
+                ${selected.rarity} : ${selected.name}
+            </div>
+        `;
+
+        historyLog.unshift(`${selected.rarity} - ${selected.name}`);
+        if (historyLog.length > 10) historyLog.pop();
+        document.getElementById("history").innerHTML =
+            "<strong>履歴:</strong><br>" + historyLog.join("<br>");
+
+        if (selected.rarity === "SSR") {
+            resultDiv.style.background = "rgba(255,215,0,0.3)";
+        } else if (selected.rarity === "SR") {
+            resultDiv.style.background = "rgba(138,43,226,0.3)";
+        } else {
+            resultDiv.style.background = "rgba(255,255,255,0.1)";
+        }
+
+    }, 800);
+}
+</script>
+
+</body>
+</html>
