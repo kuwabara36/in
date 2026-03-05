@@ -1,327 +1,210 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Platform Game</title>
+<title>ブラックジャック</title>
 
 <style>
-
 body{
-margin:0;
-overflow:hidden;
-background:#87ceeb;
+    font-family: sans-serif;
+    background: #0b5c2e;
+    color: white;
+    text-align:center;
 }
 
-#game{
-position:relative;
-width:4000px;
-height:700px;
+h1{
+    margin-top:20px;
 }
 
-.player{
-width:30px;
-height:30px;
-background:blue;
-position:absolute;
-z-index:10;
+.table{
+    margin-top:20px;
 }
 
-.platform{
-position:absolute;
-height:20px;
-background:#444;
+.cards{
+    font-size:28px;
+    margin:10px;
 }
 
-.enemy{
-width:30px;
-height:30px;
-background:red;
-position:absolute;
+button{
+    padding:10px 20px;
+    margin:10px;
+    font-size:16px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
 }
 
-.pit{
-position:absolute;
-background:black;
-height:200px;
-width:120px;
-}
+.hit{background:#2ecc71;color:white;}
+.stand{background:#e67e22;color:white;}
+.new{background:#3498db;color:white;}
 
-.spring{
-width:40px;
-height:20px;
-background:pink;
-position:absolute;
+#message{
+    font-size:22px;
+    margin-top:20px;
 }
-
-.checkpoint{
-width:40px;
-height:60px;
-background:cyan;
-position:absolute;
-}
-
-.door{
-width:50px;
-height:80px;
-background:brown;
-position:absolute;
-border:5px solid black;
-}
-
-.bigwall{
-position:absolute;
-width:120px;
-height:200px;
-background:#555;
-}
-
-.switch{
-width:40px;
-height:20px;
-background:orange;
-position:absolute;
-}
-
-.hiddenPlatform{
-position:absolute;
-height:20px;
-width:160px;
-background:green;
-display:none;
-}
-
 </style>
 </head>
 
+
 <body>
 
-<div id="game">
-<div id="player" class="player"></div>
+<h1>♠ ブラックジャック ♥</h1>
+
+<div class="table">
+
+<h2>ディーラー</h2>
+<div id="dealer-cards" class="cards"></div>
+<div id="dealer-score"></div>
+
+<h2>プレイヤー</h2>
+<div id="player-cards" class="cards"></div>
+<div id="player-score"></div>
+
+<div>
+<button class="hit" onclick="hit()">Hit</button>
+<button class="stand" onclick="stand()">Stand</button>
+<button class="new" onclick="startGame()">New Game</button>
 </div>
+
+<div id="message"></div>
+
+</div>
+
 
 <script>
 
-const player=document.getElementById("player")
-const game=document.getElementById("game")
+let deck=[]
+let player=[]
+let dealer=[]
+let gameOver=false
 
-let x=100
-let y=300
-let vx=0
-let vy=0
 
-let gravity=0.7
-let jump=-12
-let speed=4
-let onGround=false
+function createDeck(){
 
-let checkpoint={x:100,y:300}
+    const suits=["♠","♥","♦","♣"]
+    const values=["A","2","3","4","5","6","7","8","9","10","J","Q","K"]
 
-let keys={}
+    deck=[]
 
-document.addEventListener("keydown",e=>{
-keys[e.key]=true
-})
+    for(let s of suits){
+        for(let v of values){
+            deck.push({suit:s,value:v})
+        }
+    }
 
-document.addEventListener("keyup",e=>{
-keys[e.key]=false
-})
-
-function create(type,x,y,width=100){
-
-let el=document.createElement("div")
-el.className=type
-
-el.style.left=x+"px"
-el.style.top=y+"px"
-
-if(type==="platform" || type==="hiddenPlatform"){
-el.style.width=width+"px"
+    deck.sort(()=>Math.random()-0.5)
 }
 
-game.appendChild(el)
 
-return el
+
+function cardValue(card){
+
+    if(card.value==="A") return 11
+    if(["K","Q","J"].includes(card.value)) return 10
+    return Number(card.value)
 }
 
-function stage(){
 
-create("platform",0,650,4000)
 
-create("platform",300,550,150)
-create("platform",600,480,150)
-create("platform",900,420,150)
+function handValue(hand){
 
-create("enemy",900,390)
+    let total=0
+    let aces=0
 
-create("spring",1200,630)
+    for(let card of hand){
+        total+=cardValue(card)
+        if(card.value==="A") aces++
+    }
 
-create("platform",1400,520,200)
+    while(total>21 && aces>0){
+        total-=10
+        aces--
+    }
 
-create("pit",1700,650)
-
-create("platform",1900,520,200)
-
-create("enemy",1950,490)
-
-create("checkpoint",2100,590)
-
-create("bigwall",2300,450)
-
-create("switch",2600,630)
-create("hiddenPlatform",2700,500,200)
-
-create("platform",3000,420,200)
-
-create("enemy",3050,390)
-
-create("door",3600,570)
-
+    return total
 }
 
-stage()
 
-function collide(a,b){
 
-let ar=a.getBoundingClientRect()
-let br=b.getBoundingClientRect()
+function display(){
 
-return !(
-ar.right<br.left ||
-ar.left>br.right ||
-ar.bottom<br.top ||
-ar.top>br.bottom
-)
+    document.getElementById("player-cards").innerHTML=
+        player.map(c=>c.value+c.suit).join(" ")
 
+    document.getElementById("dealer-cards").innerHTML=
+        dealer.map(c=>c.value+c.suit).join(" ")
+
+    document.getElementById("player-score").innerText=
+        "Score: "+handValue(player)
+
+    document.getElementById("dealer-score").innerText=
+        "Score: "+handValue(dealer)
 }
 
-function reset(){
 
-x=checkpoint.x
-y=checkpoint.y
-vx=0
-vy=0
 
-document.querySelectorAll(".enemy").forEach(e=>{
-e.style.left=parseInt(e.style.left)+"px"
-})
+function startGame(){
 
+    createDeck()
+
+    player=[deck.pop(),deck.pop()]
+    dealer=[deck.pop(),deck.pop()]
+
+    gameOver=false
+
+    document.getElementById("message").innerText=""
+
+    display()
 }
 
-function loop(){
 
-if(keys["ArrowRight"]) vx=speed
-else if(keys["ArrowLeft"]) vx=-speed
-else vx=0
 
-if(keys[" "] && onGround){
+function hit(){
 
-vy=jump
-onGround=false
+    if(gameOver) return
 
+    player.push(deck.pop())
+
+    if(handValue(player)>21){
+        gameOver=true
+        display()
+        document.getElementById("message").innerText="バースト！ディーラーの勝ち"
+        return
+    }
+
+    display()
 }
 
-vy+=gravity
 
-x+=vx
-y+=vy
 
-onGround=false
+function stand(){
 
-player.style.left=x+"px"
-player.style.top=y+"px"
+    if(gameOver) return
 
-document.querySelectorAll(".platform,.hiddenPlatform").forEach(p=>{
+    while(handValue(dealer)<17){
+        dealer.push(deck.pop())
+    }
 
-if(collide(player,p)){
+    let playerScore=handValue(player)
+    let dealerScore=handValue(dealer)
 
-let top=p.offsetTop
+    if(dealerScore>21 || playerScore>dealerScore){
+        document.getElementById("message").innerText="あなたの勝ち！"
+    }
+    else if(playerScore<dealerScore){
+        document.getElementById("message").innerText="ディーラーの勝ち"
+    }
+    else{
+        document.getElementById("message").innerText="引き分け"
+    }
 
-if(y+30>top && y+30<top+20 && vy>=0){
+    gameOver=true
 
-y=top-30
-vy=0
-onGround=true
-
+    display()
 }
 
-}
 
-})
-
-document.querySelectorAll(".spring").forEach(s=>{
-
-if(collide(player,s)){
-vy=-18
-}
-
-})
-
-document.querySelectorAll(".enemy").forEach(e=>{
-
-let ex=parseInt(e.style.left)
-
-ex+=Math.random()<0.5?1:-1
-
-e.style.left=ex+"px"
-
-if(collide(player,e)){
-reset()
-}
-
-})
-
-document.querySelectorAll(".pit").forEach(p=>{
-
-if(collide(player,p)){
-reset()
-}
-
-})
-
-document.querySelectorAll(".checkpoint").forEach(c=>{
-
-if(collide(player,c)){
-
-checkpoint.x=c.offsetLeft
-checkpoint.y=c.offsetTop-40
-
-c.style.background="yellow"
-
-}
-
-})
-
-document.querySelectorAll(".switch").forEach(sw=>{
-
-if(collide(player,sw)){
-
-document.querySelectorAll(".hiddenPlatform").forEach(p=>{
-p.style.display="block"
-})
-
-sw.style.background="red"
-
-}
-
-})
-
-document.querySelectorAll(".door").forEach(d=>{
-
-if(collide(player,d)){
-
-alert("ステージクリア！")
-
-}
-
-})
-
-if(y>700) reset()
-
-requestAnimationFrame(loop)
-
-}
-
-loop()
+startGame()
 
 </script>
 
