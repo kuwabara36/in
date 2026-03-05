@@ -2,148 +2,159 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>オセロゲーム</title>
+<title>爆弾迷路サバイバル</title>
 <style>
-body {
-    margin: 0;
-    background: #0f3d2e;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: sans-serif;
-    color: white;
+body{
+    margin:0;
+    background:#111;
+    color:white;
+    font-family:sans-serif;
+    text-align:center;
 }
-
-h1 {
-    margin: 20px;
+h1{margin:10px;}
+#info{margin:5px;}
+#maze{
+    display:grid;
+    margin:10px auto;
+    width:400px;
+    height:400px;
 }
-
-#board {
-    display: grid;
-    grid-template-columns: repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px);
-    gap: 2px;
-    background: #083d2b;
-    padding: 5px;
+.cell{
+    border:1px solid #222;
 }
-
-.cell {
-    width: 60px;
-    height: 60px;
-    background: #2e8b57;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-}
-
-.disc {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-}
-
-.black {
-    background: black;
-}
-
-.white {
-    background: white;
-}
-
-#status {
-    margin: 15px;
-    font-size: 18px;
-}
+.wall{ background:#222; }
+.path{ background:#333; }
+.player{ background:#00ffcc; }
+.goal{ background:#ffcc00; }
+.bomb{ background:#ff4444; }
 </style>
 </head>
 <body>
 
-<h1>オセロゲーム</h1>
-<div id="status">黒の番です</div>
-<div id="board"></div>
+<h1>💣 爆弾迷路サバイバル</h1>
+<div id="info">Level: 1 | Time: 30 | Score: 0</div>
+<div id="maze"></div>
 
 <script>
-const boardSize = 8;
-let board = [];
-let currentPlayer = "black";
+const size = 15;
+let maze = [];
+let player = {x:1,y:1};
+let goal = {x:size-2,y:size-2};
+let level = 1;
+let score = 0;
+let timeLeft = 30;
+let bombCount = 2;
+let timer;
 
-const directions = [
-    [-1,-1], [-1,0], [-1,1],
-    [0,-1],         [0,1],
-    [1,-1],  [1,0], [1,1]
-];
+function generateMaze(){
+    maze = Array(size).fill().map(()=>Array(size).fill(1));
 
-function initBoard() {
-    board = Array(boardSize).fill().map(() => Array(boardSize).fill(null));
-
-    board[3][3] = "white";
-    board[3][4] = "black";
-    board[4][3] = "black";
-    board[4][4] = "white";
-
-    drawBoard();
+    function carve(x,y){
+        maze[y][x] = 0;
+        const dirs = [[2,0],[-2,0],[0,2],[0,-2]].sort(()=>Math.random()-0.5);
+        for(let [dx,dy] of dirs){
+            let nx=x+dx, ny=y+dy;
+            if(nx>0 && ny>0 && nx<size-1 && ny<size-1 && maze[ny][nx]===1){
+                maze[y+dy/2][x+dx/2]=0;
+                carve(nx,ny);
+            }
+        }
+    }
+    carve(1,1);
 }
 
-function drawBoard() {
-    const boardDiv = document.getElementById("board");
-    boardDiv.innerHTML = "";
+function drawMaze(){
+    const mazeDiv=document.getElementById("maze");
+    mazeDiv.style.gridTemplateColumns=`repeat(${size},1fr)`;
+    mazeDiv.innerHTML="";
+    for(let y=0;y<size;y++){
+        for(let x=0;x<size;x++){
+            const cell=document.createElement("div");
+            cell.classList.add("cell");
+            if(maze[y][x]===1) cell.classList.add("wall");
+            else cell.classList.add("path");
 
-    for (let r = 0; r < boardSize; r++) {
-        for (let c = 0; c < boardSize; c++) {
-            const cell = document.createElement("div");
-            cell.className = "cell";
-            cell.onclick = () => placeDisc(r, c);
+            if(x===player.x && y===player.y)
+                cell.classList.add("player");
 
-            if (board[r][c]) {
-                const disc = document.createElement("div");
-                disc.className = "disc " + board[r][c];
-                cell.appendChild(disc);
-            }
+            if(x===goal.x && y===goal.y)
+                cell.classList.add("goal");
 
-            boardDiv.appendChild(cell);
+            mazeDiv.appendChild(cell);
         }
     }
 }
 
-function placeDisc(r, c) {
-    if (board[r][c]) return;
-
-    let flipped = [];
-
-    for (let [dr, dc] of directions) {
-        let temp = [];
-        let nr = r + dr;
-        let nc = c + dc;
-
-        while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
-            if (!board[nr][nc]) break;
-            if (board[nr][nc] !== currentPlayer) {
-                temp.push([nr,nc]);
-            } else {
-                flipped = flipped.concat(temp);
-                break;
-            }
-            nr += dr;
-            nc += dc;
-        }
+function move(dx,dy){
+    let nx=player.x+dx;
+    let ny=player.y+dy;
+    if(maze[ny][nx]===0){
+        player.x=nx;
+        player.y=ny;
+        checkGoal();
+        drawMaze();
     }
-
-    if (flipped.length === 0) return;
-
-    board[r][c] = currentPlayer;
-    for (let [fr, fc] of flipped) {
-        board[fr][fc] = currentPlayer;
-    }
-
-    currentPlayer = currentPlayer === "black" ? "white" : "black";
-    document.getElementById("status").textContent =
-        currentPlayer === "black" ? "黒の番です" : "白の番です";
-
-    drawBoard();
 }
 
-initBoard();
+function checkGoal(){
+    if(player.x===goal.x && player.y===goal.y){
+        level++;
+        score+=timeLeft*10;
+        bombCount++;
+        startLevel();
+    }
+}
+
+function spawnBomb(){
+    let bx,by;
+    do{
+        bx=Math.floor(Math.random()*size);
+        by=Math.floor(Math.random()*size);
+    }while(maze[by][bx]!==0 || (bx===player.x && by===player.y));
+
+    const index=by*size+bx;
+    document.getElementById("maze").children[index].classList.add("bomb");
+
+    setTimeout(()=>{
+        if(player.x===bx && player.y===by){
+            alert("💥 爆発！ゲームオーバー\nScore: "+score);
+            location.reload();
+        }
+        document.getElementById("maze").children[index].classList.remove("bomb");
+    },1500);
+}
+
+function startLevel(){
+    timeLeft=30;
+    player={x:1,y:1};
+    goal={x:size-2,y:size-2};
+    generateMaze();
+    drawMaze();
+
+    clearInterval(timer);
+    timer=setInterval(()=>{
+        timeLeft--;
+        document.getElementById("info").textContent=
+            `Level: ${level} | Time: ${timeLeft} | Score: ${score}`;
+        if(timeLeft<=0){
+            alert("⏰ タイムアップ！\nScore: "+score);
+            location.reload();
+        }
+    },1000);
+
+    for(let i=0;i<bombCount;i++){
+        setTimeout(()=>spawnBomb(),2000+i*1500);
+    }
+}
+
+document.addEventListener("keydown",(e)=>{
+    if(e.key==="ArrowUp") move(0,-1);
+    if(e.key==="ArrowDown") move(0,1);
+    if(e.key==="ArrowLeft") move(-1,0);
+    if(e.key==="ArrowRight") move(1,0);
+});
+
+startLevel();
 </script>
 
 </body>
