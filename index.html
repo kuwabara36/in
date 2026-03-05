@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>HTML Platform Adventure</title>
+<title>Platform Adventure</title>
 
 <style>
 
@@ -25,7 +25,7 @@ background:linear-gradient(#6cc6ff,#e6f7ff);
 
 #world{
 position:absolute;
-width:12000px;
+width:9000px;
 height:700px;
 }
 
@@ -44,34 +44,36 @@ background:#654321;
 }
 
 .enemy{
-width:40px;
-height:40px;
+width:35px;
+height:35px;
 background:purple;
 border-radius:50%;
 position:absolute;
 }
 
 .coin{
-width:20px;
-height:20px;
+width:18px;
+height:18px;
 background:gold;
 border-radius:50%;
 position:absolute;
 }
 
-.spike{
-width:0;
-height:0;
-border-left:20px solid transparent;
-border-right:20px solid transparent;
-border-bottom:40px solid black;
+.spring{
+width:40px;
+height:20px;
+background:cyan;
 position:absolute;
 }
 
 .door{
-width:50px;
-height:80px;
+width:70px;
+height:100px;
 background:brown;
+color:white;
+font-size:14px;
+text-align:center;
+line-height:100px;
 position:absolute;
 }
 
@@ -82,11 +84,10 @@ background:blue;
 position:absolute;
 }
 
-#ui{
+.ceiling{
 position:absolute;
-top:10px;
-left:10px;
-font-size:22px;
+height:20px;
+background:#555;
 }
 
 </style>
@@ -95,10 +96,6 @@ font-size:22px;
 <body>
 
 <div id="game">
-
-<div id="ui">
-Score: <span id="score">0</span>
-</div>
 
 <div id="world">
 <div id="player" class="player"></div>
@@ -112,19 +109,19 @@ const world=document.getElementById("world")
 const player=document.getElementById("player")
 
 let x=100
-let y=0
+let y=500
+
 let vx=0
 let vy=0
 
-let respawnX=100
-let respawnY=0
-
+let speed=6
 let gravity=0.7
 let jumpPower=-14
-let jumps=0
 
-let speed=6
-let score=0
+let onGround=false
+
+let respawnX=100
+let respawnY=500
 
 const keys={}
 
@@ -140,14 +137,14 @@ return !(ar.right<br.left||ar.left>br.right||ar.bottom<br.top||ar.top>br.bottom)
 
 }
 
-function create(type,left,top,width){
+function create(type,x,y,w){
 
 let el=document.createElement("div")
 el.className=type
-el.style.left=left+"px"
-el.style.top=top+"px"
+el.style.left=x+"px"
+el.style.top=y+"px"
 
-if(width)el.style.width=width+"px"
+if(w)el.style.width=w+"px"
 
 world.appendChild(el)
 
@@ -155,36 +152,39 @@ return el
 
 }
 
-function generateStage(){
+function stage(){
 
-create("platform",0,660,12000)
+create("platform",0,660,9000)
 
-for(let i=400;i<11500;i+=400){
+for(let i=400;i<8500;i+=600){
 
-let h=400+Math.random()*200
+let h=400+Math.random()*150
 
-create("platform",i,h,150)
+create("platform",i,h,200)
 
-if(Math.random()<0.4)
-create("coin",i+60,h-40)
+create("enemy",i+80,h-35)
 
-if(Math.random()<0.3)
-create("enemy",i+60,620)
-
-if(Math.random()<0.2)
-create("spike",i+60,620)
+create("coin",i+100,h-40)
 
 }
 
-create("door",2500,580)
-create("door",7000,580)
+create("spring",1200,640)
+create("spring",4200,640)
+
+let d=create("door",2500,560)
+d.innerText="DOOR"
+
+let d2=create("door",7000,560)
+d2.innerText="DOOR"
 
 create("checkpoint",1500,580)
 create("checkpoint",5000,580)
 
+create("ceiling",3000,350,300)
+
 }
 
-generateStage()
+stage()
 
 function gameLoop(){
 
@@ -192,10 +192,10 @@ if(keys["ArrowRight"])vx=speed
 else if(keys["ArrowLeft"])vx=-speed
 else vx=0
 
-if(keys[" "] && jumps<2){
+if(keys[" "] && onGround){
 
 vy=jumpPower
-jumps++
+onGround=false
 
 }
 
@@ -207,25 +207,26 @@ y+=vy
 player.style.left=x+"px"
 player.style.top=y+"px"
 
+onGround=false
+
 document.querySelectorAll(".platform").forEach(p=>{
 
 if(collide(player,p) && vy>=0){
 
 y=p.offsetTop-50
 vy=0
-jumps=0
+onGround=true
 
 }
 
 })
 
-document.querySelectorAll(".coin").forEach(c=>{
+document.querySelectorAll(".ceiling").forEach(c=>{
 
-if(c.style.display!="none" && collide(player,c)){
+if(collide(player,c) && vy<0){
 
-c.style.display="none"
-score+=10
-updateScore()
+vy=0
+y=c.offsetTop+20
 
 }
 
@@ -237,8 +238,8 @@ let ex=parseFloat(e.style.left)
 
 if(Math.abs(ex-x)<300){
 
-if(ex<x) ex+=2
-else ex-=2
+if(ex<x)ex+=1.5
+else ex-=1.5
 
 e.style.left=ex+"px"
 
@@ -246,28 +247,17 @@ e.style.left=ex+"px"
 
 if(collide(player,e)){
 
-if(vy>0){
-
-e.remove()
-vy=-10
-score+=50
-updateScore()
-
-}else{
-
 respawn()
-
-}
 
 }
 
 })
 
-document.querySelectorAll(".spike").forEach(s=>{
+document.querySelectorAll(".spring").forEach(s=>{
 
-if(collide(player,s)){
+if(collide(player,s) && vy>=0){
 
-respawn()
+vy=-20
 
 }
 
@@ -277,8 +267,8 @@ document.querySelectorAll(".door").forEach(d=>{
 
 if(collide(player,d)){
 
-x+=2000
-y=0
+x+=1500
+y=500
 
 }
 
@@ -289,8 +279,7 @@ document.querySelectorAll(".checkpoint").forEach(c=>{
 if(collide(player,c)){
 
 respawnX=c.offsetLeft
-respawnY=0
-
+respawnY=500
 c.style.background="lime"
 
 }
@@ -316,10 +305,6 @@ y=respawnY
 vx=0
 vy=0
 
-}
-
-function updateScore(){
-document.getElementById("score").innerText=score
 }
 
 gameLoop()
